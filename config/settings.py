@@ -9,7 +9,9 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -27,7 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-2mr@!=oz=fea#n*-=m+aooxw@$@5z#-t9l06!2x@kqgnle)n@$"
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -50,6 +52,8 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "drf_yasg",
     "django_filters",
+    "django_celery_beat",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
@@ -91,13 +95,22 @@ REST_FRAMEWORK = {
     ],
 }
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+}
+
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "NAME": os.getenv("NAME"),
+        "USER": os.getenv("USER"),
+        "PASSWORD": os.getenv("PASSWORD"),
+        "HOST": os.getenv("HOST"),
+        "PORT": os.getenv("PORT"),
     }
 }
 
@@ -127,7 +140,7 @@ AUTH_USER_MODEL = "users.User"
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Europe/Moscow"
 
 USE_I18N = True
 
@@ -143,3 +156,43 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+CORS_ALLOWED_ORIGINS = [
+    "https://read-only.example.com",
+    "https://read-and-write.example.com",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://read-and-write.example.com",
+]
+
+
+SUCCESS_URL_SESSION = '"http://127.0.0.1:8000/"'
+
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_BEAT_SCHEDULE = {
+    "send_habbit_reminder": {
+        "task": "habits.tasks.send_habbit_reminder",
+        "schedule": timedelta(minutes=1),
+    },
+}
+
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+
+TELEGRAM_URL = "https://api.telegram.org/bot"
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
+
+if "test" in sys.argv:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "test_db.sqlite3",
+        }
+    }
+    STATICFILES_DIRS = []
+
+    TEST_RUNNER = "django.test.runner.DiscoverRunner"
+    TEST_DISCOVERY_ROOT = BASE_DIR
